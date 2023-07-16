@@ -78,7 +78,7 @@ years = list(set([r.year for r in pmid_records]))
 
 # %%
 
-# Get abstracts for each year
+#  Get abstracts for each year
 bigram = gensim.models.Phrases(min_count=40) # min_count determined by eyeball
 
 for year in years:

@@ -23,73 +23,104 @@
 import pickle
 import os
 from bertopic import BERTopic
-import openai
 from bertopic.representation import OpenAI
 from sentence_transformers import SentenceTransformer
+from umap import UMAP
+from hdbscan import HDBSCAN
+from sklearn.feature_extraction.text import CountVectorizer
+from bertopic.representation import KeyBERTInspired
+from bertopic.vectorizers import ClassTfidfTransformer
+import argparse
+import openai
 
+if __name__ == '__main__':
 
-# %%
-# Load the abstracts
-datadir = 'data'
-ldadir = os.path.join(datadir, 'lda_models')
-if not os.path.exists(ldadir):
-    os.makedirs(ldadir)
+    argparser = argparse.ArgumentParser()
+    argparser.add_argument('--use_gpt', action='store_true')
+    argparser.add_argument('--min_cluster_size', type=int, default=50)
+    args = argparser.parse_args()
 
-# %%
+    datadir = 'data'
+    ldadir = os.path.join(datadir, 'lda_models')
+    if not os.path.exists(ldadir):
+        os.makedirs(ldadir)
 
-sentences = []
-years = []
+    sentences = []
+    years = []
 
+    # load sentence data
+    for year in range(1990, 2023):
+        print('loading data for year %s' % year)
+        abstract_file = os.path.join(
+            datadir, f'bigrammed_cleaned_abstracts_{year}.pkl'
+        )
+        if not os.path.exists(abstract_file):
+            print('File %s does not exist' % abstract_file)
+            continue
+        with open(abstract_file, 'rb') as f:
+            new_sentences = [' '.join(i) for i in pickle.load(f)]
+            sentences = sentences + new_sentences
+            years = years + [year] * len(new_sentences)
 
-for year in range(1990, 2023):
-    print('loading data for year %s' % year)
-    abstract_file = os.path.join(
-        datadir, f'bigrammed_cleaned_abstracts_{year}.pkl'
+    assert len(sentences) > 0
+    assert len(sentences) == len(years)
+
+    model_name = 'bertopic' if not args.use_gpt else 'bertopic_gpt4'
+
+    modeldir = 'models'
+    if not os.path.exists(modeldir):
+        os.makedirs(modeldir)
+
+    # Step 1 - Extract embeddings
+    embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+
+    # Step 2 - Reduce dimensionality
+    umap_model = UMAP(
+        n_neighbors=15, n_components=5, min_dist=0.0, metric='cosine'
     )
-    if not os.path.exists(abstract_file):
-        print('File %s does not exist' % abstract_file)
-        continue
-    with open(abstract_file, 'rb') as f:
-        new_sentences = [' '.join(i) for i in pickle.load(f)]
-        sentences = sentences + new_sentences
-        years = years + [year] * len(new_sentences)
 
-assert len(sentences) > 0
-assert len(sentences) == len(years)
-
-# %%
-
-use_gpt = True
-embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-
-model_name = 'bertopic' if not use_gpt else 'bertopic_gpt4'
-representation_model = None
-
-modeldir = 'models'
-if not os.path.exists(modeldir):
-    os.makedirs(modeldir)
-
-if use_gpt:
-    with open('openai_api_key.txt', 'r') as f:
-        openai.api_key = f.read().strip()
-
-    representation_model = OpenAI(
-        model='gpt-4', chat=True, exponential_backoff=True
+    # Step 3 - Cluster reduced embeddings
+    hdbscan_model = HDBSCAN(
+        min_cluster_size=args.min_cluster_size,
+        metric='euclidean',
+        cluster_selection_method='eom',
+        prediction_data=True,
     )
 
+    # Step 4 - Tokenize topics
+    vectorizer_model = CountVectorizer(stop_words='english')
 
-topic_model = BERTopic(
-    representation_model=representation_model,
-    embedding_model=embedding_model,
-    verbose=True,
-)
+    # Step 5 - Create topic representation
+    ctfidf_model = ClassTfidfTransformer()
 
-topics, probs = topic_model.fit_transform(sentences)
+    # Step 6 - (Optional) Fine-tune topic representations with
+    # a `bertopic.representation` model
+    if args.use_gpt:
+        with open('openai_api_key.txt', 'r') as f:
+            openai.api_key = f.read().strip()
 
-# need to exclude embedding model as it causes GPU/CPU conflict
-topic_model.save(
-    os.path.join(modeldir, model_name),
-    serialization='pytorch',
-    save_ctfidf=True,
-    save_embedding_model=False,
-)
+        representation_model = OpenAI(
+            model='gpt-4', chat=True, exponential_backoff=True
+        )
+    else:
+        representation_model = KeyBERTInspired()
+
+    # All steps together
+    topic_model = BERTopic(
+        embedding_model=embedding_model,  # Step 1 - Extract embeddings
+        umap_model=umap_model,  # Step 2 - Reduce dimensionality
+        hdbscan_model=hdbscan_model,  # Step 3 - Cluster reduced embeddings
+        vectorizer_model=vectorizer_model,  # Step 4 - Tokenize topics
+        ctfidf_model=ctfidf_model,  # Step 5 - Extract topic words
+        representation_model=representation_model,  # Step 6 - (Optional) Fine-tune topic represenations
+    )
+
+    topics, probs = topic_model.fit_transform(sentences)
+
+    # need to exclude embedding model as it causes GPU/CPU conflict
+    topic_model.save(
+        os.path.join(modeldir, model_name),
+        serialization='pytorch',
+        save_ctfidf=True,
+        save_embedding_model=False,
+    )

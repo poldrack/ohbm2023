@@ -73,6 +73,7 @@ if __name__ == '__main__':
     model_name = 'bertopic' # fit plain model first
     if args.year is not None:
         model_name = model_name + f'_{args.year}'
+        args.min_cluster_size = 20
 
     modeldir = 'models'
     if not os.path.exists(modeldir):

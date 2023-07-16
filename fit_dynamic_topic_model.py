@@ -36,8 +36,8 @@ import openai
 if __name__ == '__main__':
 
     argparser = argparse.ArgumentParser()
-    argparser.add_argument('--use_gpt', action='store_true')
     argparser.add_argument('--min_cluster_size', type=int, default=50)
+    argparser.add_argument('--year', type=int, default=None)
     args = argparser.parse_args()
 
     datadir = 'data'
@@ -48,8 +48,12 @@ if __name__ == '__main__':
     sentences = []
     years = []
 
+    if args.year is not None:
+        years_to_process = [args.year]
+    else:
+        years_to_process = list(range(1990, 2023))
     # load sentence data
-    for year in range(1990, 2023):
+    for year in years_to_process:
         print('loading data for year %s' % year)
         abstract_file = os.path.join(
             datadir, f'bigrammed_cleaned_abstracts_{year}.pkl'
@@ -65,7 +69,9 @@ if __name__ == '__main__':
     assert len(sentences) > 0
     assert len(sentences) == len(years)
 
-    model_name = 'bertopic' if not args.use_gpt else 'bertopic_gpt4'
+    model_name = 'bertopic' # fit plain model first
+    if args.year is not None:
+        model_name = model_name + f'_{args.year}'
 
     modeldir = 'models'
     if not os.path.exists(modeldir):
@@ -95,27 +101,20 @@ if __name__ == '__main__':
 
     # Step 6 - (Optional) Fine-tune topic representations with
     # a `bertopic.representation` model
-    if args.use_gpt:
-        with open('openai_api_key.txt', 'r') as f:
-            openai.api_key = f.read().strip()
-
-        representation_model = OpenAI(
-            model='gpt-4', chat=True, exponential_backoff=True
-        )
-    else:
-        representation_model = KeyBERTInspired()
 
     # All steps together
     topic_model = BERTopic(
+        verbose=True,
         embedding_model=embedding_model,  # Step 1 - Extract embeddings
         umap_model=umap_model,  # Step 2 - Reduce dimensionality
         hdbscan_model=hdbscan_model,  # Step 3 - Cluster reduced embeddings
         vectorizer_model=vectorizer_model,  # Step 4 - Tokenize topics
         ctfidf_model=ctfidf_model,  # Step 5 - Extract topic words
-        representation_model=representation_model,  # Step 6 - (Optional) Fine-tune topic represenations
+        representation_model=KeyBERTInspired(),  # Step 6 - Fine-tune topic represenations
     )
 
     topics, probs = topic_model.fit_transform(sentences)
+    df = pd.DataFrame({"Document": sentences, "Topic": topics})
 
     # need to exclude embedding model as it causes GPU/CPU conflict
     topic_model.save(
@@ -124,3 +123,26 @@ if __name__ == '__main__':
         save_ctfidf=True,
         save_embedding_model=False,
     )
+    df.to_csv(os.path.join(modeldir, model_name + '.csv'))
+
+    # now run for GPT-4
+    with open('openai_api_key.txt', 'r') as f:
+        openai.api_key = f.read().strip()
+
+    representation_model = OpenAI(
+        model='gpt-4', chat=True, exponential_backoff=True
+    )
+
+    topic_model.update_topics(representation_model=representation_model)
+    
+    model_name = 'bertopic_gpt4'
+    topics, probs = topic_model.fit_transform(sentences)
+    df = pd.DataFrame({"Document": sentences, "Topic": topics})
+    topic_model.save(
+        os.path.join(modeldir, model_name),
+        serialization='pytorch',
+        save_ctfidf=True,
+        save_embedding_model=False,
+    )
+    df.to_csv(os.path.join(modeldir, model_name + '.csv'))
+

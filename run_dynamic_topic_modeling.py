@@ -51,14 +51,16 @@ for year in range(1990, 2023):
         print('File %s does not exist' % abstract_file)
         continue
     with open(abstract_file, 'rb') as f:
-        sentences = sentences + [' '.join(i) for i in pickle.load(f)]
-        years = years + [year] * len(sentences)
+        new_sentences = [' '.join(i) for i in pickle.load(f)]
+        sentences = sentences + new_sentences
+        years = years + [year] * len(new_sentences)
 
 assert len(sentences) > 0
+assert len(sentences) == len(years)
 
 # %%
 
-use_gpt = False
+use_gpt = True
 embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
 
 model_name = 'bertopic' if not use_gpt else 'bertopic_gpt4'
@@ -99,3 +101,5 @@ if False:
     timestamps = [pd.to_datetime(f'{year}-01-01') for year in years]
 
     topics_over_time = topic_model.topics_over_time(sentences, timestamps)
+
+    topic_model.visualize_topics_over_time(topics_over_time, top_n_topics=20)

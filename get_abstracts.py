@@ -1,8 +1,8 @@
 # code to retrieve pubmed abstracts for fMRI per year
 
 
-import sys, os
-import pandas
+import sys
+import os
 from Bio import Entrez
 import time
 import pickle
@@ -26,7 +26,7 @@ if os.path.exists(pmid_file):
 else:
 
     for year in range(1990, end_year + 1):
-        query = '("fMRI" OR "functional MRI" OR "functional magnetic resonance imaging") AND %d[DP]' % year
+        query = '("fMRI" OR "functional MRI" OR "functional magnetic resonance imaging") AND (brain OR neural OR neuroscience OR neurological OR psychiatric OR psychology) AND %d[DP]' % year
         results = get_pubmed_query_results(query, Entrez.email)
         pmids[year] = [int(i) for i in results['IdList']]
         print('found %d records for' % len(pmids[year]), year)
@@ -76,6 +76,7 @@ else:
         except:
             e = sys.exc_info()[0]
             print('problem with', year, e)
+            continue
 
         for i in records['PubmedArticle']:
             pmid = int(i['MedlineCitation']['PMID'])

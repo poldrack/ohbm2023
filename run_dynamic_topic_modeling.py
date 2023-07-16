@@ -26,6 +26,8 @@ from bertopic import BERTopic
 import pandas as pd
 import openai
 from bertopic.representation import OpenAI
+from sentence_transformers import SentenceTransformer
+
 
 
 # %%
@@ -57,7 +59,8 @@ assert len(sentences) > 0
 # %%
 
 use_gpt = False
-embedding_model = "sentence-transformers/all-MiniLM-L6-v2"
+embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+
 model_name = 'bertopic' if not use_gpt else 'bertopic_gpt4'
 representation_model = None
 
@@ -66,7 +69,8 @@ if not os.path.exists(modeldir):
     os.makedirs(modeldir)
 
 try:
-    topic_model = BERTopic.load(os.path.join(modeldir, model_name))
+    topic_model = BERTopic.load(os.path.join(modeldir, model_name),
+                                embedding_model=embedding_model)
     print('Loaded model from %s' % os.path.join(modeldir, model_name))
     preloaded = True
 
@@ -80,12 +84,16 @@ except:
                                       exponential_backoff=True)
 
 
-    topic_model = BERTopic(representation_model=representation_model, verbose=True)
+    topic_model = BERTopic(representation_model=representation_model,
+                           embedding_model=embedding_model,
+                           verbose=True)
 
     topics, probs = topic_model.fit_transform(sentences)
 
+    # need to exclude embedding model as it causes GPU/CPU conflict
     topic_model.save(os.path.join(modeldir, model_name),
-                     serialization="pickle")
+                     serialization="pickle",
+                     save_embedding_model=False)
 
 if False:
     timestamps = [pd.to_datetime(f'{year}-01-01') for year in years]

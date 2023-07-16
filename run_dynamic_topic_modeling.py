@@ -69,7 +69,6 @@ try:
     topic_model = BERTopic.load(os.path.join(modeldir, model_name))
     print('Loaded model from %s' % os.path.join(modeldir, model_name))
     preloaded = True
-    topics, probs = topic_model.transform(sentences)
 
 except:
     preloaded = False
@@ -86,9 +85,7 @@ except:
     topics, probs = topic_model.fit_transform(sentences)
 
     topic_model.save(os.path.join(modeldir, model_name),
-                     serialization="safetensors", 
-                     save_ctfidf=True,
-                     save_embedding_model=embedding_model)
+                     serialization="pickle")
 
 if False:
     timestamps = [pd.to_datetime(f'{year}-01-01') for year in years]

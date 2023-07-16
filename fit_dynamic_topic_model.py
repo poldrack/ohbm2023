@@ -32,6 +32,7 @@ from bertopic.representation import KeyBERTInspired
 from bertopic.vectorizers import ClassTfidfTransformer
 import argparse
 import openai
+import pandas as pd
 
 if __name__ == '__main__':
 
@@ -133,7 +134,7 @@ if __name__ == '__main__':
         model='gpt-4', chat=True, exponential_backoff=True
     )
 
-    topic_model.update_topics(representation_model=representation_model)
+    topic_model.update_topics(sentences, representation_model=representation_model)
     
     model_name = 'bertopic_gpt4'
     topics, probs = topic_model.fit_transform(sentences)

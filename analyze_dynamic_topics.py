@@ -29,7 +29,6 @@ from bertopic.representation import OpenAI
 from sentence_transformers import SentenceTransformer
 
 
-
 # %%
 # Load the abstracts
 datadir = 'data'
@@ -45,8 +44,9 @@ years = []
 
 for year in range(1990, 2023):
     print('loading data for year %s' % year)
-    abstract_file = os.path.join(datadir,
-                                 f'bigrammed_cleaned_abstracts_{year}.pkl')
+    abstract_file = os.path.join(
+        datadir, f'bigrammed_cleaned_abstracts_{year}.pkl'
+    )
     if not os.path.exists(abstract_file):
         print('File %s does not exist' % abstract_file)
         continue
@@ -61,7 +61,7 @@ assert len(sentences) == len(years)
 # %%
 
 use_gpt = True
-embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
 
 model_name = 'bertopic' if not use_gpt else 'bertopic_gpt4'
 representation_model = None
@@ -71,8 +71,9 @@ if not os.path.exists(modeldir):
     os.makedirs(modeldir)
 
 try:
-    topic_model = BERTopic.load(os.path.join(modeldir, model_name),
-                                embedding_model=embedding_model)
+    topic_model = BERTopic.load(
+        os.path.join(modeldir, model_name), embedding_model=embedding_model
+    )
     print('Loaded model from %s' % os.path.join(modeldir, model_name))
     preloaded = True
 
@@ -82,20 +83,25 @@ except:
         with open('openai_api_key.txt', 'r') as f:
             openai.api_key = f.read().strip()
 
-        representation_model = OpenAI(model="gpt-4", chat=True,
-                                      exponential_backoff=True)
+        representation_model = OpenAI(
+            model='gpt-4', chat=True, exponential_backoff=True
+        )
 
-
-    topic_model = BERTopic(representation_model=representation_model,
-                           embedding_model=embedding_model,
-                           verbose=True)
+    topic_model = BERTopic(
+        representation_model=representation_model,
+        embedding_model=embedding_model,
+        verbose=True,
+    )
 
     topics, probs = topic_model.fit_transform(sentences)
 
     # need to exclude embedding model as it causes GPU/CPU conflict
-    topic_model.save(os.path.join(modeldir, model_name),
-                     serialization="pytorch", save_ctfidf=True, 
-                     save_embedding_model=False)
+    topic_model.save(
+        os.path.join(modeldir, model_name),
+        serialization='pytorch',
+        save_ctfidf=True,
+        save_embedding_model=False,
+    )
 
 if False:
     timestamps = [pd.to_datetime(f'{year}-01-01') for year in years]

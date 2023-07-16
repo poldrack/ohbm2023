@@ -26,6 +26,7 @@ import pickle
 from collections import namedtuple
 import os
 from nltk.stem import WordNetLemmatizer
+
 nltk.download('wordnet', quiet=True)
 import gensim
 
@@ -53,9 +54,10 @@ def clean_text(sentences):
         words = [i.lower() for i in word_tokenize(sentence)]
 
         # Remove stop words and stem the words
+        cleaned_sentence = [lem.lemmatize(w) for w in words if w.isalpha()]
         cleaned_sentence = [
-            lem.lemmatize(w) for w in words if w.isalpha()]
-        cleaned_sentence = [w for w in cleaned_sentence if w not in stop_words and len(w) > 2]
+            w for w in cleaned_sentence if w not in stop_words and len(w) > 2
+        ]
         cleaned_sentences.append(' '.join(cleaned_sentence))
 
     return cleaned_sentences
@@ -75,11 +77,12 @@ with open(recordfile, 'rb') as f:
 years = list(set([r.year for r in pmid_records]))
 
 
-
 # %%
 
 #  Get abstracts for each year
-bigram = gensim.models.Phrases(min_count=40) # min_count determined by eyeball
+bigram = gensim.models.Phrases(
+    min_count=40
+)   # min_count determined by eyeball
 
 for year in years:
     print('getting abstracts for', year)
@@ -91,7 +94,9 @@ for year in years:
             abstracts.append(clean_text([r.abstract]))
     bigram.add_vocab([a[0].split(' ') for a in abstracts])
 
-    with open(os.path.join(datadir, f'cleaned_abstracts_{year}.pkl'), 'wb') as f:
+    with open(
+        os.path.join(datadir, f'cleaned_abstracts_{year}.pkl'), 'wb'
+    ) as f:
         pickle.dump(abstracts, f)
 
 frozen_model = bigram.freeze()
@@ -101,11 +106,14 @@ frozen_model.save(os.path.join(datadir, 'bigram_model.pkl'))
 for year in years:
     print('getting bigrammed abstracts for', year)
     bg_abstracts = []
-    with open(os.path.join(datadir, f'cleaned_abstracts_{year}.pkl'), 'rb') as f:
+    with open(
+        os.path.join(datadir, f'cleaned_abstracts_{year}.pkl'), 'rb'
+    ) as f:
         abstracts = pickle.load(f)
     split_abstracts = [a[0].split(' ') for a in abstracts]
     bg_abstracts = list(frozen_model[split_abstracts])
 
-
-    with open(os.path.join(datadir, f'bigrammed_cleaned_abstracts_{year}.pkl'), 'wb') as f:
+    with open(
+        os.path.join(datadir, f'bigrammed_cleaned_abstracts_{year}.pkl'), 'wb'
+    ) as f:
         pickle.dump(bg_abstracts, f)

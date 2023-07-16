@@ -137,7 +137,7 @@ if __name__ == '__main__':
     topic_model.update_topics(sentences, representation_model=representation_model)
     
     model_name = 'bertopic_gpt4'
-    topics, probs = topic_model.fit_transform(sentences)
+    topics, probs = topic_model.transform(sentences)
     df = pd.DataFrame({"Document": sentences, "Topic": topics})
     topic_model.save(
         os.path.join(modeldir, model_name),

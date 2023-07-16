@@ -111,7 +111,8 @@ for year in years:
     ) as f:
         abstracts = pickle.load(f)
     split_abstracts = [a[0].split(' ') for a in abstracts]
-    bg_abstracts = list(frozen_model[split_abstracts])
+    # demarcate bigrams with dash
+    bg_abstracts = [i.replace('_', '-') for i in frozen_model[split_abstracts]]
 
     with open(
         os.path.join(datadir, f'bigrammed_cleaned_abstracts_{year}.pkl'), 'wb'

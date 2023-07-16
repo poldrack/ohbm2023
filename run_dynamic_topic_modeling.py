@@ -92,7 +92,7 @@ except:
 
     # need to exclude embedding model as it causes GPU/CPU conflict
     topic_model.save(os.path.join(modeldir, model_name),
-                     serialization="pickle",
+                     serialization="pytorch", save_ctfidf=True, 
                      save_embedding_model=False)
 
 if False:

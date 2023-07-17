@@ -38,7 +38,9 @@ if __name__ == '__main__':
 
     argparser = argparse.ArgumentParser()
     argparser.add_argument('--min_cluster_size', type=int, default=50)
+    argparser.add_argument('--n_neighbors', type=int, default=15)
     argparser.add_argument('--year', type=int, default=None)
+    argparser.add_argument('--reduce_topics', action='store_true')
     args = argparser.parse_args()
 
     datadir = 'data'
@@ -70,7 +72,7 @@ if __name__ == '__main__':
     assert len(sentences) > 0
     assert len(sentences) == len(years)
 
-    model_name = 'bertopic' # fit plain model first
+    model_name = 'bertopic'  # fit plain model first
     if args.year is not None:
         model_name = model_name + f'_{args.year}'
         args.min_cluster_size = 20
@@ -83,8 +85,9 @@ if __name__ == '__main__':
     embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
 
     # Step 2 - Reduce dimensionality
+    # ala https://maartengr.github.io/BERTopic/faq.html#i-have-too-many-topics-how-do-i-decrease-them
     umap_model = UMAP(
-        n_neighbors=15, n_components=5, min_dist=0.0, metric='cosine'
+        n_neighbors=args.n_neighbors, n_components=5, min_dist=0.0, metric='cosine'
     )
 
     # Step 3 - Cluster reduced embeddings
@@ -103,6 +106,12 @@ if __name__ == '__main__':
 
     # Step 6 - (Optional) Fine-tune topic representations with
     # a `bertopic.representation` model
+    representation_model = KeyBERTInspired()
+
+    if args.reduce_topics:
+        nr_topics = 'auto'
+    else:
+        nr_topics = None
 
     # All steps together
     topic_model = BERTopic(
@@ -112,7 +121,8 @@ if __name__ == '__main__':
         hdbscan_model=hdbscan_model,  # Step 3 - Cluster reduced embeddings
         vectorizer_model=vectorizer_model,  # Step 4 - Tokenize topics
         ctfidf_model=ctfidf_model,  # Step 5 - Extract topic words
-        representation_model=KeyBERTInspired(),  # Step 6 - Fine-tune topic represenations
+        representation_model=representation_model,  # Step 6 - Fine-tune topic represenations
+        nr_topics=nr_topics
     )
 
     topics, probs = topic_model.fit_transform(sentences)

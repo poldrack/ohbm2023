@@ -41,6 +41,7 @@ if __name__ == '__main__':
     argparser.add_argument('--n_neighbors', type=int, default=15)
     argparser.add_argument('--year', type=int, default=None)
     argparser.add_argument('--reduce_topics', action='store_true')
+    argparser.add_argument('--use_gpt4', action='store_true')
     args = argparser.parse_args()
 
     datadir = 'data'
@@ -137,24 +138,25 @@ if __name__ == '__main__':
     )
     df.to_csv(os.path.join(modeldir, model_name + '.csv'))
 
-    # now run for GPT-4
-    with open('openai_api_key.txt', 'r') as f:
-        openai.api_key = f.read().strip()
+    if args.use_gpt4:
+        # now run with GPT-4 representatoin model
+        with open('openai_api_key.txt', 'r') as f:
+            openai.api_key = f.read().strip()
 
-    representation_model = OpenAI(
-        model='gpt-4', chat=True, exponential_backoff=True
-    )
+        representation_model = OpenAI(
+            model='gpt-4', chat=True, exponential_backoff=True
+        )
 
-    topic_model.update_topics(sentences, representation_model=representation_model)
-    
-    model_name += '_gpt4'
-    topics, probs = topic_model.transform(sentences)
-    df = pd.DataFrame({"Document": sentences, "Topic": topics})
-    topic_model.save(
-        os.path.join(modeldir, model_name),
-        serialization='pytorch',
-        save_ctfidf=True,
-        save_embedding_model=False,
-    )
-    df.to_csv(os.path.join(modeldir, model_name + '.csv'))
+        topic_model.update_topics(sentences, representation_model=representation_model)
+        
+        model_name += '_gpt4'
+        topics, probs = topic_model.transform(sentences)
+        df = pd.DataFrame({"Document": sentences, "Topic": topics})
+        topic_model.save(
+            os.path.join(modeldir, model_name),
+            serialization='pytorch',
+            save_ctfidf=True,
+            save_embedding_model=False,
+        )
+        df.to_csv(os.path.join(modeldir, model_name + '.csv'))
 
